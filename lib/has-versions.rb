@@ -36,12 +36,13 @@ module VersionIncludes
       scope :with_version, lambda {|version| self.where("version <= '#{version}'") }
       
       before_create 'before_create_initialization'
+      after_create 'after_create_initialization'
 
     end
   end
 
   def histories
-    self.class.where(:uid=>uid).where(:state=>'history').all
+    self.class.where(:uid=>uid).where(:state=>'history').order('version DESC').all
   end
   def draft
     self.class.where(:uid=>uid).where(:state=>'draft').all.first
@@ -55,6 +56,13 @@ module VersionIncludes
   def before_create_initialization
     self.state = 'draft'
     self.version = nil
+  end
+
+  def after_create_initialization
+    if self.uid.nil?
+      self.uid = id
+      self.save
+    end
   end
   
   def draft!
@@ -82,7 +90,7 @@ module VersionIncludes
   end
 
   def restore!
-    if history?
+    if history? || publication?
       draft.destroy if draft
       create_draft!
     end
@@ -118,6 +126,6 @@ module VersionIncludes
   end  
   
   def commitable?
-    draft? && (self.created_at!=self.updated_at)
+    draft? && (self.created_at.to_i!=self.updated_at.to_i)
   end 
 end
